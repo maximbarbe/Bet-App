@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#080b0d" />
+    <title>Edge — Bet Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a class="brand" href="#dashboard" aria-label="Edge dashboard">
+          <span class="brand-mark">E</span><span>EDGE</span>
+        </a>
+        <nav class="nav" aria-label="Main navigation">
+          <a href="#dashboard" data-route="dashboard"><span class="nav-icon">⌂</span>Overview</a>
+          <a href="#bets" data-route="bets"><span class="nav-icon">↗</span>My bets</a>
+          <a href="#kelly" data-route="kelly"><span class="nav-icon">¼</span>Quarter Kelly</a>
+        </nav>
+        <div class="sidebar-foot">
+          <p>LOCAL LEDGER</p>
+          <span><i></i> Data saved on device</span>
+        </div>
+      </aside>
+
+      <main>
+        <header class="topbar">
+          <button class="menu-button" id="menuButton" aria-label="Toggle menu">☰</button>
+          <div class="topbar-date" id="todayLabel"></div>
+          <button class="primary-button" data-action="new-bet"><span>＋</span> Add bet</button>
+        </header>
+
+        <section class="page" id="dashboardPage">
+          <div class="page-heading">
+            <div><p class="eyebrow">PERFORMANCE</p><h1>Your betting edge,<br><em>clearly measured.</em></h1></div>
+            <div class="heading-note">A clear view of every wager and what it means for your bankroll.</div>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card featured"><p>NET PROFIT</p><strong id="netProfit">$0.00</strong><span id="netProfitHint">No settled bets yet</span></article>
+            <article class="stat-card"><p>TOTAL STAKED</p><strong id="totalStaked">$0.00</strong><span id="stakedHint">Across 0 bets</span></article>
+            <article class="stat-card"><p>RETURN ON INVESTMENT</p><strong id="roi">—</strong><span>Settled bets only</span></article>
+            <article class="stat-card"><p>RECORD</p><strong id="record">0–0–0</strong><span>Wins – Losses – Pushes</span></article>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel chart-panel">
+              <div class="panel-heading"><div><p class="eyebrow">PROFIT TREND</p><h2>Cumulative performance</h2></div><span class="period-chip">ALL TIME</span></div>
+              <div class="chart-wrap" id="chartWrap"><svg id="profitChart" role="img" aria-label="Cumulative profit chart"></svg><div class="chart-empty" id="chartEmpty">Settle your first bet to see the curve.</div></div>
+            </article>
+            <article class="panel recent-panel">
+              <div class="panel-heading"><div><p class="eyebrow">LATEST ACTIVITY</p><h2>Recent bets</h2></div><a href="#bets">View all</a></div>
+              <div id="recentBets" class="recent-list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page hidden" id="betsPage">
+          <div class="section-heading"><div><p class="eyebrow">BET LEDGER</p><h1>Every wager,<br><em>accounted for.</em></h1></div><button class="primary-button" data-action="new-bet">＋ Add bet</button></div>
+          <div class="filter-bar">
+            <div class="filter-tabs" id="betFilters"><button class="active" data-filter="all">All</button><button data-filter="pending">Pending</button><button data-filter="settled">Completed</button></div>
+            <label class="search-box">⌕ <input type="search" id="betSearch" placeholder="Search teams or sport" /></label>
+          </div>
+          <div class="bets-table-wrap">
+            <table class="bets-table">
+              <thead><tr><th>Matchup</th><th>Date</th><th>Line</th><th>Odds</th><th>Stake</th><th>Result</th><th>Profit</th><th></th></tr></thead>
+              <tbody id="betsTableBody"></tbody>
+            </table>
+            <div class="empty-state" id="betsEmpty"><div>↗</div><h3>No bets here yet</h3><p>Add your first wager to begin tracking your edge.</p><button class="secondary-button" data-action="new-bet">Add a bet</button></div>
+          </div>
+        </section>
+
+        <section class="page hidden" id="kellyPage">
+          <div class="section-heading kelly-heading"><div><p class="eyebrow">STAKE WITH DISCIPLINE</p><h1>Quarter Kelly<br><em>calculator.</em></h1></div><p>Turn your estimated probabilities into measured stakes. Quarter Kelly keeps the logic, softens the volatility.</p></div>
+          <div class="kelly-layout">
+            <form class="panel kelly-form" id="kellyForm">
+              <div class="form-section-title"><span>01</span><div><h2>Bankroll</h2><p>The amount you are staking from.</p></div></div>
+              <label class="field full"><span>Current bankroll</span><div class="input-prefix"><b>$</b><input type="number" id="kellyBankroll" min="0" step="0.01" value="1000" required /></div></label>
+              <div class="form-section-title section-divider"><span>02</span><div><h2>Outcomes</h2><p>Add decimal odds and your true probability for every side.</p></div></div>
+              <div id="kellyOutcomes"></div>
+              <button type="button" class="text-button" id="addOutcome">＋ Add another outcome</button>
+              <button type="submit" class="primary-button calculate-button">Calculate stakes <span>→</span></button>
+            </form>
+            <aside class="kelly-results">
+              <div class="kelly-explainer"><p class="eyebrow">THE FORMULA</p><p>Kelly identifies the mathematical edge, then we use one quarter of that stake to reduce bankroll swings.</p><div class="formula">¼ × <span>(bp − q) / b</span></div><small>Negative edges are assigned a $0 stake.</small></div>
+              <div id="kellyResultCards"></div>
+            </aside>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop hidden" id="betModal">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-head"><div><p class="eyebrow">BET DETAILS</p><h2 id="modalTitle">Add a new bet</h2></div><button class="close-button" id="closeModal" aria-label="Close">×</button></div>
+        <form id="betForm">
+          <input type="hidden" id="betId" />
+          <div class="form-grid">
+            <label class="field"><span>Date & time</span><input type="datetime-local" id="betDate" required /></label>
+            <label class="field"><span>Sport</span><input type="text" id="betSport" placeholder="e.g. Basketball" required /></label>
+            <label class="field"><span>Team / Side A</span><input type="text" id="teamA" placeholder="e.g. Toronto" required /></label>
+            <label class="field"><span>Team / Side B</span><input type="text" id="teamB" placeholder="e.g. Boston" required /></label>
+            <label class="field"><span>Bet / Selection</span><input type="text" id="betSelection" placeholder="e.g. Over 2.5" required /></label>
+            <label class="field"><span>Line / Market</span><input type="text" id="betLine" placeholder="e.g. Total Goals" required /></label>
+            <label class="field"><span>Decimal odds</span><input type="number" id="betOdds" min="1" step="0.01" placeholder="1.91" required /></label>
+            <label class="field"><span>Stake</span><div class="input-prefix"><b>$</b><input type="number" id="betStake" min="0.01" step="0.01" placeholder="50.00" required /></div></label>
+            <div class="field full"><span>Result <small>(leave unselected while pending)</small></span><input type="hidden" id="betOutcome" value="pending" /><div class="result-picker" id="resultPicker"><button type="button" data-outcome="win">Win</button><button type="button" data-outcome="loss">Loss</button><button type="button" data-outcome="push">Push</button><button type="button" data-outcome="half-win">Half-Win</button><button type="button" data-outcome="half-loss">Half-Loss</button></div><small class="field-note">Profit is calculated automatically from stake and decimal odds.</small></div>
+          </div>
+          <div class="modal-actions"><button type="button" class="danger-button hidden" id="deleteBet">Delete bet</button><span></span><button type="button" class="ghost-button" id="cancelModal">Cancel</button><button type="submit" class="primary-button">Save bet</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
