@@ -70,6 +70,30 @@ function resultColorClass(result) {
   return 'neutral';
 }
 
+function populateTimeSelectors() {
+  $('#betHour').innerHTML = Array.from({ length: 24 }, (_, hour) => {
+    const value = String(hour).padStart(2, '0');
+    return `<option value="${value}">${value}</option>`;
+  }).join('');
+
+  $('#betMinute').innerHTML = Array.from({ length: 60 }, (_, minute) => {
+    const value = String(minute).padStart(2, '0');
+    return `<option value="${value}">${value}</option>`;
+  }).join('');
+}
+
+function setBetDateTime(value) {
+  const [date, time = '00:00'] = value.slice(0, 16).split('T');
+  const [hour = '00', minute = '00'] = time.split(':');
+  $('#betDate').value = date;
+  $('#betHour').value = hour;
+  $('#betMinute').value = minute;
+}
+
+function getBetDateTime() {
+  return `${$('#betDate').value}T${$('#betHour').value}:${$('#betMinute').value}`;
+}
+
 function renderProfitChart(svgSelector, emptySelector) {
   const settled = settledBetsInStartOrder();
   const svg = $(svgSelector);
@@ -150,13 +174,13 @@ function openModal(id = null) {
   $('#deleteBet').classList.add('hidden');
   $('#modalTitle').textContent = 'Add a new bet';
   const localNow = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16);
-  $('#betDate').value = localNow;
+  setBetDateTime(localNow);
   if (id) {
     const bet = bets.find(b => String(b.id) === String(id));
     if (!bet) return;
     $('#modalTitle').textContent = 'Edit bet';
     $('#betId').value = bet.id;
-    $('#betDate').value = bet.date;
+    setBetDateTime(bet.date);
     $('#betSport').value = bet.sport;
     $('#teamA').value = bet.teamA;
     $('#teamB').value = bet.teamB;
@@ -183,7 +207,7 @@ $('#betForm').addEventListener('submit', async event => {
   event.preventDefault();
   const id = $('#betId').value;
   const odds = Number($('#betOdds').value), stake = Number($('#betStake').value), outcome = $('#betOutcome').value;
-  const bet = { date: $('#betDate').value, sport: $('#betSport').value.trim(), teamA: $('#teamA').value.trim(), teamB: $('#teamB').value.trim(), selection: $('#betSelection').value.trim(), line: $('#betLine').value.trim(), odds, stake, outcome, profit: calculateProfit(outcome, odds, stake) };
+  const bet = { date: getBetDateTime(), sport: $('#betSport').value.trim(), teamA: $('#teamA').value.trim(), teamB: $('#teamB').value.trim(), selection: $('#betSelection').value.trim(), line: $('#betLine').value.trim(), odds, stake, outcome, profit: calculateProfit(outcome, odds, stake) };
   try {
     if (id) await api(`/${id}`, { method: 'PUT', body: JSON.stringify(bet) });
     else await api('', { method: 'POST', body: JSON.stringify(bet) });
@@ -280,5 +304,6 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape') clos
 $('#todayLabel').textContent = new Date().toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
 addOutcome('Side A', '', ''); addOutcome('Side B', '', '');
 addDevigOutcome('Side A', '', ''); addDevigOutcome('Side B', '', '');
+populateTimeSelectors();
 route();
 loadBets().catch(error => { renderAll(); showToast(`Database unavailable: ${error.message}`); });

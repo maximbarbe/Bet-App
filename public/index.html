@@ -137,8 +137,8 @@
         <form id="betForm">
           <input type="hidden" id="betId" />
           <div class="form-grid">
-            <label class="field"><span>Date & time</span><input type="datetime-local" id="betDate" required /></label>
-            <label class="field"><span>Sport</span><input type="text" id="betSport" placeholder="e.g. Basketball" required /></label>
+            <div class="field full"><span>Match start</span><div class="datetime-controls"><label><span>Date</span><input type="date" id="betDate" required /></label><label><span>Time <small>(24-hour)</small></span><div class="time-selects"><select id="betHour" aria-label="Match start hour" required></select><b>:</b><select id="betMinute" aria-label="Match start minute" required></select></div></label></div><small class="field-note">Example: 18:30 means 6:30 PM.</small></div>
+            <label class="field full"><span>Sport</span><input type="text" id="betSport" placeholder="e.g. Basketball" required /></label>
             <label class="field"><span>Team / Side A</span><input type="text" id="teamA" placeholder="e.g. Toronto" required /></label>
             <label class="field"><span>Team / Side B</span><input type="text" id="teamB" placeholder="e.g. Boston" required /></label>
             <label class="field"><span>Bet / Selection</span><input type="text" id="betSelection" placeholder="e.g. Over 2.5" required /></label>

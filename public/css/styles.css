@@ -625,7 +625,8 @@ main {
   font-weight: 600;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   border: 1px solid var(--line);
   background: #0b1012;
@@ -635,8 +636,57 @@ main {
   outline: 0;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   border-color: #728c42;
+}
+
+.field select {
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.field input[type="date"] {
+  color-scheme: dark;
+}
+
+.field select option {
+  background: #0b1012;
+  color: var(--text);
+}
+
+.datetime-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(180px, 1fr);
+  gap: 14px;
+}
+
+.datetime-controls > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.datetime-controls > label > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.datetime-controls small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.time-selects {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.time-selects b {
+  color: var(--muted);
+  font: 16px var(--mono);
 }
 
 .input-prefix {
@@ -1365,6 +1415,10 @@ main {
 
   .field.full {
     grid-column: auto;
+  }
+
+  .datetime-controls {
+    grid-template-columns: 1fr;
   }
 
   .result-picker {
