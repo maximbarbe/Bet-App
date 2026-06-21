@@ -77,6 +77,10 @@ test('serves the application and performance assets', async () => {
   assert.equal(appResponse.status, 200);
   assert.match(index, /id="performancePage"/);
   assert.match(index, /id="completedBetHistory"/);
+  assert.match(index, /id="lineLeaderboard"/);
+  assert.match(index, /id="sportLeaderboard"/);
+  assert.match(index, /id="sportFilter"/);
+  assert.match(index, /id="betSort"/);
   assert.match(appSource, /resultOf\(bet\) !== 'pending'/);
   assert.match(appSource, /new Date\(left\.date\) - new Date\(right\.date\)/);
 });

@@ -1,10 +1,13 @@
 import { betsApi as api } from './api.js';
 import { calculateProfit, proportionalDevig, resultOf } from './calculations.js';
+import { buildLeaderboard, sortBets } from './performance.js';
 import { $, $$, escapeHtml, formatDate, formatDateTime, money, signedMoney } from './utils.js';
 
 const STORAGE_KEY = 'edge-bets-v1';
 let bets = [];
 let activeFilter = 'all';
+let activeSport = 'all';
+let activeSort = 'date-desc';
 
 async function loadBets() {
   bets = await api();
@@ -25,6 +28,7 @@ async function loadBets() {
 function renderAll() {
   renderStats();
   renderChart();
+  renderPerformanceLeaderboards();
   renderPerformanceHistory();
   renderRecent();
   renderBetsTable();
@@ -94,6 +98,64 @@ function getBetDateTime() {
   return `${$('#betDate').value}T${$('#betHour').value}:${$('#betMinute').value}`;
 }
 
+function bindChartTooltips(svg) {
+  const chart = svg.closest('.chart-wrap');
+  let tooltip = chart.querySelector('.chart-tooltip');
+  let targetLayer = chart.querySelector('.chart-point-layer');
+
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.className = 'chart-tooltip hidden';
+    tooltip.setAttribute('role', 'tooltip');
+    chart.appendChild(tooltip);
+  }
+
+  if (!targetLayer) {
+    targetLayer = document.createElement('div');
+    targetLayer.className = 'chart-point-layer';
+    chart.appendChild(targetLayer);
+  }
+
+  targetLayer.replaceChildren();
+
+  const positionTooltip = (point, event) => {
+    const chartRect = chart.getBoundingClientRect();
+    const pointRect = point.getBoundingClientRect();
+    const requestedX = event ? event.clientX - chartRect.left + 14 : pointRect.left - chartRect.left + pointRect.width + 10;
+    const requestedY = event ? event.clientY - chartRect.top - tooltip.offsetHeight - 14 : pointRect.top - chartRect.top - tooltip.offsetHeight - 10;
+    const maxX = chart.clientWidth - tooltip.offsetWidth - 8;
+    const maxY = chart.clientHeight - tooltip.offsetHeight - 8;
+    tooltip.style.left = `${Math.max(8, Math.min(requestedX, maxX))}px`;
+    tooltip.style.top = `${Math.max(8, Math.min(requestedY, maxY))}px`;
+  };
+
+  const showTooltip = (point, event) => {
+    const change = Number(point.dataset.change);
+    const changeClass = change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral';
+    tooltip.innerHTML = `<strong>${escapeHtml(point.dataset.day)}</strong><dl><div><dt>Cumulative profit</dt><dd>${escapeHtml(point.dataset.cumulative)}</dd></div><div><dt>Bets settled</dt><dd>${escapeHtml(point.dataset.settled)}</dd></div><div><dt>From previous day</dt><dd class="${changeClass}">${escapeHtml(point.dataset.changeLabel)}</dd></div></dl>`;
+    tooltip.classList.remove('hidden');
+    positionTooltip(point, event);
+  };
+
+  const chartRect = chart.getBoundingClientRect();
+  svg.querySelectorAll('.chart-point').forEach(point => {
+    const pointRect = point.getBoundingClientRect();
+    const target = document.createElement('button');
+    target.type = 'button';
+    target.className = 'chart-point-target';
+    target.setAttribute('aria-label', point.getAttribute('aria-label'));
+    Object.assign(target.dataset, point.dataset);
+    target.style.left = `${pointRect.left - chartRect.left + pointRect.width / 2}px`;
+    target.style.top = `${pointRect.top - chartRect.top + pointRect.height / 2}px`;
+    target.addEventListener('mouseenter', event => showTooltip(target, event));
+    target.addEventListener('mousemove', event => positionTooltip(target, event));
+    target.addEventListener('mouseleave', () => tooltip.classList.add('hidden'));
+    target.addEventListener('focus', () => showTooltip(target));
+    target.addEventListener('blur', () => tooltip.classList.add('hidden'));
+    targetLayer.appendChild(target);
+  });
+}
+
 function renderProfitChart(svgSelector, emptySelector) {
   const settled = settledBetsInStartOrder();
   const svg = $(svgSelector);
@@ -105,8 +167,26 @@ function renderProfitChart(svgSelector, emptySelector) {
   if (!settled.length) return;
 
   const width = 800, height = 270, pad = { t: 20, r: 20, b: 30, l: 55 };
+  const dailyResults = new Map();
+
+  settled.forEach(bet => {
+    const day = bet.date.slice(0, 10);
+    const current = dailyResults.get(day) || { label: formatDate(bet.date, true), profit: 0, settledBets: 0 };
+    current.profit += Number(bet.profit);
+    current.settledBets += 1;
+    dailyResults.set(day, current);
+  });
+
   let running = 0;
-  const data = [{ label: 'Start', value: 0 }, ...settled.map(b => ({ label: formatDate(b.date, true), value: running += Number(b.profit) }))];
+  const data = [
+    { label: 'Start', value: 0 },
+    ...[...dailyResults.values()].map(day => ({
+      label: day.label,
+      value: running += day.profit,
+      dailyChange: day.profit,
+      settledBets: day.settledBets
+    }))
+  ];
   let min = Math.min(0, ...data.map(d => d.value));
   let max = Math.max(0, ...data.map(d => d.value));
 
@@ -124,10 +204,18 @@ function renderProfitChart(svgSelector, emptySelector) {
   const gridValues = [max, min + range * .5, min];
   const grids = gridValues.map(v => `<line class="chart-grid" x1="${pad.l}" x2="${width-pad.r}" y1="${y(v)}" y2="${y(v)}"/><text class="chart-label" x="0" y="${y(v)+3}">${escapeHtml(signedMoney(v))}</text>`).join('');
   const labels = data.map((d,i) => (i === 0 || i === data.length-1 || (data.length > 5 && i === Math.floor(data.length/2))) ? `<text class="chart-label" text-anchor="middle" x="${x(i)}" y="${height-5}">${escapeHtml(d.label)}</text>` : '').join('');
+  const dayPoints = data.slice(1).map((day, index) => {
+    const dataIndex = index + 1;
+    const betLabel = `${day.settledBets} bet${day.settledBets === 1 ? '' : 's'}`;
+    const tooltip = `${day.label}\nCumulative profit: ${signedMoney(day.value)}\nSettled that day: ${betLabel}\nDifference from previous day: ${signedMoney(day.dailyChange)}`;
+    const coordinates = `cx="${x(dataIndex)}" cy="${y(day.value)}"`;
+    return `<circle class="chart-point" ${coordinates} r="5" aria-hidden="true" aria-label="${escapeHtml(tooltip)}" data-day="${escapeHtml(day.label)}" data-cumulative="${escapeHtml(signedMoney(day.value))}" data-settled="${escapeHtml(betLabel)}" data-change="${day.dailyChange}" data-change-label="${escapeHtml(signedMoney(day.dailyChange))}"></circle>`;
+  }).join('');
   const zero = min < 0 && max > 0 ? `<line class="chart-zero" x1="${pad.l}" x2="${width-pad.r}" y1="${y(0)}" y2="${y(0)}"/>` : '';
   const gradientId = `${svg.id}Gradient`;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.innerHTML = `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f36a" stop-opacity=".22"/><stop offset="1" stop-color="#c8f36a" stop-opacity="0"/></linearGradient></defs>${grids}${zero}<polygon class="chart-area" style="fill:url(#${gradientId})" points="${points} ${x(data.length-1)},${height-pad.b} ${x(0)},${height-pad.b}"/><polyline class="chart-line" points="${points}"/>${labels}`;
+  svg.innerHTML = `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f36a" stop-opacity=".22"/><stop offset="1" stop-color="#c8f36a" stop-opacity="0"/></linearGradient></defs>${grids}${zero}<polygon class="chart-area" style="fill:url(#${gradientId})" points="${points} ${x(data.length-1)},${height-pad.b} ${x(0)},${height-pad.b}"/><polyline class="chart-line" points="${points}"/>${dayPoints}${labels}`;
+  bindChartTooltips(svg);
 }
 
 function renderChart() {
@@ -147,6 +235,41 @@ function renderPerformanceHistory() {
   }).join('');
 }
 
+function renderPerformanceLeaderboards() {
+  renderLeaderboard('#lineLeaderboard', buildLeaderboard(bets, 'line').slice(0, 5));
+  renderLeaderboard('#sportLeaderboard', buildLeaderboard(bets, 'sport').slice(0, 5));
+}
+
+function renderLeaderboard(selector, entries) {
+  const container = $(selector);
+  if (!entries.length) {
+    container.innerHTML = '<div class="leaderboard-empty">Complete a bet to generate rankings.</div>';
+    return;
+  }
+
+  container.innerHTML = entries.map((entry, index) => {
+    const profitClass = entry.profit > 0 ? 'positive' : entry.profit < 0 ? 'negative' : 'neutral';
+    const performanceClass = entry.profit > 0 ? 'is-positive' : entry.profit < 0 ? 'is-negative' : 'is-neutral';
+    const roiSign = entry.roi > 0 ? '+' : '';
+    return `<div class="leaderboard-row ${performanceClass}"><span class="leaderboard-rank">${index + 1}</span><div class="leaderboard-name"><strong>${escapeHtml(entry.label)}</strong><span>${entry.wins}W · ${entry.losses}L · ${entry.pushes}P · ${roiSign}${entry.roi.toFixed(1)}% ROI</span></div><strong class="leaderboard-profit ${profitClass}">${signedMoney(entry.profit)}</strong></div>`;
+  }).join('');
+}
+
+function syncSportFilter() {
+  const sports = new Map();
+  bets.forEach(bet => {
+    const label = String(bet.sport || '').trim();
+    if (label) sports.set(label.toLocaleLowerCase(), label);
+  });
+
+  if (activeSport !== 'all' && !sports.has(activeSport)) activeSport = 'all';
+  const options = [...sports.entries()].sort((left, right) => left[1].localeCompare(right[1]));
+  $('#sportFilter').innerHTML = '<option value="all">All sports</option>' + options
+    .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
+    .join('');
+  $('#sportFilter').value = activeSport;
+}
+
 function betRow(bet) {
   const result = resultOf(bet);
   const tone = resultColorClass(result);
@@ -154,12 +277,14 @@ function betRow(bet) {
 }
 
 function renderBetsTable() {
+  syncSportFilter();
   const query = $('#betSearch').value.trim().toLowerCase();
-  const filtered = [...bets].sort((a,b) => new Date(b.date)-new Date(a.date)).filter(b => {
+  const filtered = sortBets(bets, activeSort).filter(b => {
     const result = resultOf(b);
     const filterMatch = activeFilter === 'all' || (activeFilter === 'settled' ? result !== 'pending' : result === 'pending');
+    const sportMatch = activeSport === 'all' || String(b.sport).trim().toLocaleLowerCase() === activeSport;
     const searchMatch = `${b.teamA} ${b.teamB} ${b.sport} ${b.selection} ${b.line}`.toLowerCase().includes(query);
-    return filterMatch && searchMatch;
+    return filterMatch && sportMatch && searchMatch;
   });
   $('#betsTableBody').innerHTML = filtered.map(betRow).join('');
   $('#betsEmpty').classList.toggle('hidden', filtered.length > 0);
@@ -299,6 +424,8 @@ $('#cancelModal').addEventListener('click', closeModal);
 $('#betModal').addEventListener('click', event => { if (event.target === $('#betModal')) closeModal(); });
 $('#menuButton').addEventListener('click', () => $('.sidebar').classList.toggle('open'));
 $('#betSearch').addEventListener('input', renderBetsTable);
+$('#sportFilter').addEventListener('change', event => { activeSport = event.target.value; renderBetsTable(); });
+$('#betSort').addEventListener('change', event => { activeSort = event.target.value; renderBetsTable(); });
 $('#betFilters').addEventListener('click', event => { if (!event.target.dataset.filter) return; activeFilter=event.target.dataset.filter; $$('#betFilters button').forEach(b=>b.classList.toggle('active',b===event.target)); renderBetsTable(); });
 $('#resultPicker').addEventListener('click', event => { if (!event.target.dataset.outcome) return; setOutcome($('#betOutcome').value === event.target.dataset.outcome ? 'pending' : event.target.dataset.outcome); });
 $('#addOutcome').addEventListener('click', () => addOutcome());

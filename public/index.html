@@ -72,6 +72,11 @@
             <div class="chart-wrap performance-chart-wrap"><svg id="performanceChart" role="img" aria-label="Full cumulative profit chart"></svg><div class="chart-empty" id="performanceChartEmpty">Settle your first bet to see the curve.</div></div>
           </article>
 
+          <section class="performance-leaderboards" aria-label="Performance leaderboards">
+            <article class="panel leaderboard-panel"><div class="leaderboard-heading"><div><p class="eyebrow">BY MARKET</p><h2>Best performing lines</h2></div><span>NET PROFIT</span></div><div id="lineLeaderboard" class="leaderboard-list"></div></article>
+            <article class="panel leaderboard-panel"><div class="leaderboard-heading"><div><p class="eyebrow">BY CATEGORY</p><h2>Best performing sports</h2></div><span>NET PROFIT</span></div><div id="sportLeaderboard" class="leaderboard-list"></div></article>
+          </section>
+
           <section class="performance-history" aria-labelledby="completedHistoryTitle">
             <div class="history-heading"><div><p class="eyebrow">COMPLETED MATCHES</p><h2 id="completedHistoryTitle">Result history</h2></div><span id="completedBetCount">0 BETS</span></div>
             <div id="completedBetHistory" class="completed-bet-history"></div>
@@ -83,7 +88,7 @@
           <div class="section-heading"><div><p class="eyebrow">BET LEDGER</p><h1>Every wager,<br><em>accounted for.</em></h1></div><button class="primary-button" data-action="new-bet">＋ Add bet</button></div>
           <div class="filter-bar">
             <div class="filter-tabs" id="betFilters"><button class="active" data-filter="all">All</button><button data-filter="pending">Pending</button><button data-filter="settled">Completed</button></div>
-            <label class="search-box">⌕ <input type="search" id="betSearch" placeholder="Search teams or sport" /></label>
+            <div class="filter-actions"><label class="select-filter"><span>Sport</span><select id="sportFilter" aria-label="Filter bets by sport"><option value="all">All sports</option></select></label><label class="select-filter"><span>Sort</span><select id="betSort" aria-label="Sort bets"><option value="date-desc">Newest first</option><option value="odds-desc">Odds: high to low</option><option value="odds-asc">Odds: low to high</option></select></label><label class="search-box">⌕ <input type="search" id="betSearch" placeholder="Search bets" /></label></div>
           </div>
           <div class="bets-table-wrap">
             <table class="bets-table">
