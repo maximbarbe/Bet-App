@@ -1,0 +1,24 @@
+name: edge-bet-tracker
+
+services:
+  edge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: edge-bet-tracker:local
+    init: true
+    ports:
+      - "4173:4173"
+    volumes:
+      - edge-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 10s
+
+volumes:
+  edge-data:
+    name: edge-bet-tracker-data

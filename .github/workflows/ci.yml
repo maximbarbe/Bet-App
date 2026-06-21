@@ -43,3 +43,36 @@ jobs:
       # Start an isolated server and test HTTP, SQLite, CRUD, and settlement math.
       - name: Run integration tests
         run: npm test
+
+  container:
+    name: Build and smoke-test container
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Building in CI catches invalid Dockerfiles and missing runtime files.
+      - name: Build Docker image
+        run: docker build --tag edge-bet-tracker:ci .
+
+      - name: Start container
+        run: docker run --detach --name edge-ci --publish 4173:4173 edge-bet-tracker:ci
+
+      # Wait for the API to become healthy and prove the exposed port works.
+      - name: Smoke-test container
+        run: |
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4173/api/bets > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs edge-ci
+          exit 1
+
+      - name: Stop container
+        if: always()
+        run: docker rm --force edge-ci || true

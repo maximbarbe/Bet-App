@@ -53,7 +53,7 @@ function bet(overrides = {}) {
 before(async () => {
   server = spawn(process.execPath, ['src/server.js'], {
     cwd: projectRoot,
-    env: { ...process.env, PORT: String(port), DATABASE_PATH: databasePath },
+    env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATABASE_PATH: databasePath },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   await waitForServer();

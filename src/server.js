@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createBet, deleteBet, getBet, listBets, updateBet } = require('./database');
 
+const HOST = process.env.HOST || '127.0.0.1';
 const PORT = Number(process.env.PORT) || 4173;
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 
@@ -78,4 +79,4 @@ const server = http.createServer(async (req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 
-server.listen(PORT, '127.0.0.1', () => console.log(`Edge is running at http://127.0.0.1:${PORT}`));
+server.listen(PORT, HOST, () => console.log(`Edge is running at http://${HOST}:${PORT}`));

@@ -1,0 +1,11 @@
+.git
+.github
+.vscode
+data
+node_modules
+scripts
+test
+*.log
+.env*
+README.md
+compose.yml
