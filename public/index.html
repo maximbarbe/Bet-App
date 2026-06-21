@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./css/styles.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -20,6 +20,7 @@
           <a href="#dashboard" data-route="dashboard"><span class="nav-icon">⌂</span>Overview</a>
           <a href="#bets" data-route="bets"><span class="nav-icon">↗</span>My bets</a>
           <a href="#kelly" data-route="kelly"><span class="nav-icon">¼</span>Quarter Kelly</a>
+          <a href="#devig" data-route="devig"><span class="nav-icon">◎</span>Devig & Stake</a>
         </nav>
         <div class="sidebar-foot">
           <p>LOCAL LEDGER</p>
@@ -91,6 +92,23 @@
             </aside>
           </div>
         </section>
+
+        <section class="page hidden" id="devigPage">
+          <div class="section-heading kelly-heading"><div><p class="eyebrow">FROM MARKET TO STAKE</p><h1>Devig your odds.<br><em>Price your edge.</em></h1></div><p>Use a sharp reference market to estimate fair probabilities, then size each positive edge with Quarter Kelly.</p></div>
+          <div class="devig-steps"><div><span>01</span><p><strong>Enter both prices</strong>Offered and sharp market odds</p></div><i>→</i><div><span>02</span><p><strong>Remove the vig</strong>Proportional normalization</p></div><i>→</i><div><span>03</span><p><strong>Size the stake</strong>Quarter Kelly on offered odds</p></div></div>
+          <form id="devigForm">
+            <div class="panel devig-input-panel">
+              <div class="devig-toolbar"><label class="field bankroll-field"><span>Current bankroll</span><div class="input-prefix"><b>$</b><input type="number" id="devigBankroll" min="0" step="0.01" value="1000" required /></div></label><div><p class="eyebrow">MATCHED MARKET</p><p class="toolbar-note">Every row must represent the same market and line.</p></div></div>
+              <div class="devig-table-head"><span>Outcome</span><span>Offered odds</span><span>Sharp market odds</span><span></span></div>
+              <div id="devigOutcomes"></div>
+              <div class="devig-actions"><button type="button" class="text-button" id="addDevigOutcome">＋ Add outcome</button><button type="submit" class="primary-button">Devig & calculate <span>→</span></button></div>
+            </div>
+          </form>
+          <div class="devig-summary hidden" id="devigSummary">
+            <div class="devig-metrics"><article><p>SHARP MARKET HOLD</p><strong id="marketHold">—</strong><span>Removed proportionally</span></article><article><p>PROBABILITY TOTAL</p><strong id="probabilityTotal">—</strong><span>After devigging</span></article><article><p>POSITIVE EDGES</p><strong id="positiveEdges">—</strong><span>Qualified outcomes</span></article></div>
+            <div id="devigResults" class="devig-results"></div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -106,7 +124,7 @@
             <label class="field"><span>Team / Side B</span><input type="text" id="teamB" placeholder="e.g. Boston" required /></label>
             <label class="field"><span>Bet / Selection</span><input type="text" id="betSelection" placeholder="e.g. Over 2.5" required /></label>
             <label class="field"><span>Line / Market</span><input type="text" id="betLine" placeholder="e.g. Total Goals" required /></label>
-            <label class="field"><span>Decimal odds</span><input type="number" id="betOdds" min="1" step="0.01" placeholder="1.91" required /></label>
+            <label class="field"><span>Decimal odds</span><input type="number" id="betOdds" min="1" step="0.001" placeholder="1.910" required /></label>
             <label class="field"><span>Stake</span><div class="input-prefix"><b>$</b><input type="number" id="betStake" min="0.01" step="0.01" placeholder="50.00" required /></div></label>
             <div class="field full"><span>Result <small>(leave unselected while pending)</small></span><input type="hidden" id="betOutcome" value="pending" /><div class="result-picker" id="resultPicker"><button type="button" data-outcome="win">Win</button><button type="button" data-outcome="loss">Loss</button><button type="button" data-outcome="push">Push</button><button type="button" data-outcome="half-win">Half-Win</button><button type="button" data-outcome="half-loss">Half-Loss</button></div><small class="field-note">Profit is calculated automatically from stake and decimal odds.</small></div>
           </div>
@@ -115,6 +133,6 @@
       </div>
     </div>
     <div class="toast" id="toast" role="status"></div>
-    <script src="./app.js"></script>
+    <script type="module" src="./js/app.js"></script>
   </body>
 </html>

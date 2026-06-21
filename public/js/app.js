@@ -1,17 +1,10 @@
+import { betsApi as api } from './api.js';
+import { calculateProfit, proportionalDevig, resultOf } from './calculations.js';
+import { $, $$, escapeHtml, formatDate, money, signedMoney } from './utils.js';
+
 const STORAGE_KEY = 'edge-bets-v1';
 let bets = [];
 let activeFilter = 'all';
-
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => [...document.querySelectorAll(selector)];
-const money = (value) => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD', minimumFractionDigits: 2 }).format(value || 0);
-const signedMoney = (value) => `${value > 0 ? '+' : ''}${money(value)}`;
-
-async function api(path = '', options = {}) {
-  const response = await fetch(`/api/bets${path}`, { headers: { 'Content-Type': 'application/json' }, ...options });
-  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Database request failed');
-  return response.status === 204 ? null : response.json();
-}
 
 async function loadBets() {
   bets = await api();
@@ -28,19 +21,7 @@ async function loadBets() {
   renderAll();
 }
 
-function resultOf(bet) {
-  return bet.outcome || 'pending';
-}
-
-function formatDate(value, short = false) {
-  const date = new Date(value);
-  return date.toLocaleDateString('en-CA', short ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function escapeHtml(value = '') {
-  return String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
-}
-
+// Re-render every view that depends on the in-memory bet list.
 function renderAll() {
   renderStats();
   renderChart();
@@ -93,7 +74,7 @@ function renderChart() {
 function betRow(bet) {
   const result = resultOf(bet);
   const tone = result.includes('win') ? 'positive' : result.includes('loss') ? 'negative' : 'neutral';
-  return `<tr><td class="matchup"><strong>${escapeHtml(bet.teamA)} <span>vs</span> ${escapeHtml(bet.teamB)}</strong><span>${escapeHtml(bet.sport)}</span></td><td>${formatDate(bet.date)}</td><td><strong>${escapeHtml(bet.selection)}</strong><br><span class="neutral">${escapeHtml(bet.line)}</span></td><td>${Number(bet.odds).toFixed(2)}</td><td>${money(bet.stake)}</td><td><span class="status ${result}">${result.replace('-', ' ')}</span></td><td class="${tone}">${result === 'pending' ? '—' : signedMoney(Number(bet.profit))}</td><td><button class="edit-button" data-edit="${bet.id}">Edit</button></td></tr>`;
+  return `<tr><td class="matchup"><strong>${escapeHtml(bet.teamA)} <span>vs</span> ${escapeHtml(bet.teamB)}</strong><span>${escapeHtml(bet.sport)}</span></td><td>${formatDate(bet.date)}</td><td><strong>${escapeHtml(bet.selection)}</strong><br><span class="neutral">${escapeHtml(bet.line)}</span></td><td>${Number(bet.odds).toFixed(3)}</td><td>${money(bet.stake)}</td><td><span class="status ${result}">${result.replace('-', ' ')}</span></td><td class="${tone}">${result === 'pending' ? '—' : signedMoney(Number(bet.profit))}</td><td><button class="edit-button" data-edit="${bet.id}">Edit</button></td></tr>`;
 }
 
 function renderBetsTable() {
@@ -155,20 +136,11 @@ function setOutcome(outcome) {
   $$('#resultPicker button').forEach(button => button.classList.toggle('selected', button.dataset.outcome === outcome));
 }
 
-function calculatedProfit(outcome, odds, stake) {
-  if (outcome === 'win') return stake * (odds - 1);
-  if (outcome === 'loss') return -stake;
-  if (outcome === 'push') return 0;
-  if (outcome === 'half-win') return stake * (odds - 1) / 2;
-  if (outcome === 'half-loss') return -stake / 2;
-  return null;
-}
-
 $('#betForm').addEventListener('submit', async event => {
   event.preventDefault();
   const id = $('#betId').value;
   const odds = Number($('#betOdds').value), stake = Number($('#betStake').value), outcome = $('#betOutcome').value;
-  const bet = { date: $('#betDate').value, sport: $('#betSport').value.trim(), teamA: $('#teamA').value.trim(), teamB: $('#teamB').value.trim(), selection: $('#betSelection').value.trim(), line: $('#betLine').value.trim(), odds, stake, outcome, profit: calculatedProfit(outcome, odds, stake) };
+  const bet = { date: $('#betDate').value, sport: $('#betSport').value.trim(), teamA: $('#teamA').value.trim(), teamB: $('#teamB').value.trim(), selection: $('#betSelection').value.trim(), line: $('#betLine').value.trim(), odds, stake, outcome, profit: calculateProfit(outcome, odds, stake) };
   try {
     if (id) await api(`/${id}`, { method: 'PUT', body: JSON.stringify(bet) });
     else await api('', { method: 'POST', body: JSON.stringify(bet) });
@@ -184,7 +156,7 @@ $('#deleteBet').addEventListener('click', async () => {
 });
 
 function route() {
-  const name = ['dashboard','bets','kelly'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
+  const name = ['dashboard','bets','kelly','devig'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
   $$('.page').forEach(p => p.classList.add('hidden'));
   $(`#${name}Page`).classList.remove('hidden');
   $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.route === name));
@@ -195,10 +167,39 @@ function route() {
 function addOutcome(name='', odds='', probability='') {
   const row = document.createElement('div');
   row.className = 'kelly-outcome';
-  row.innerHTML = `<label class="field outcome-name"><span>Outcome</span><input class="outcome-label" placeholder="e.g. Home win" value="${escapeHtml(name)}" required></label><label class="field"><span>Decimal odds</span><input class="outcome-odds" type="number" min="1.01" step="0.01" placeholder="2.10" value="${odds}" required></label><label class="field"><span>Your probability</span><div class="input-prefix"><input class="outcome-prob" type="number" min="0.01" max="100" step="0.01" placeholder="52" value="${probability}" required><b>%</b></div></label><button type="button" class="remove-outcome" aria-label="Remove outcome">×</button>`;
+  row.innerHTML = `<label class="field outcome-name"><span>Outcome</span><input class="outcome-label" placeholder="e.g. Home win" value="${escapeHtml(name)}" required></label><label class="field"><span>Decimal odds</span><input class="outcome-odds" type="number" min="1.001" step="0.001" placeholder="2.100" value="${odds}" required></label><label class="field"><span>Your probability</span><div class="input-prefix"><input class="outcome-prob" type="number" min="0.01" max="100" step="0.01" placeholder="52" value="${probability}" required><b>%</b></div></label><button type="button" class="remove-outcome" aria-label="Remove outcome">×</button>`;
   row.querySelector('.remove-outcome').addEventListener('click', () => { if ($$('.kelly-outcome').length > 2) row.remove(); });
   $('#kellyOutcomes').appendChild(row);
 }
+
+function addDevigOutcome(name='', offered='', sharp='') {
+  const row = document.createElement('div');
+  row.className = 'devig-outcome-row';
+  row.innerHTML = `<input class="devig-name" aria-label="Outcome" placeholder="e.g. Over 2.5" value="${escapeHtml(name)}" required><input class="devig-offered" aria-label="Offered odds" type="number" min="1.001" step="0.001" placeholder="2.100" value="${offered}" required><input class="devig-sharp" aria-label="Sharp market odds" type="number" min="1.001" step="0.001" placeholder="1.950" value="${sharp}" required><button type="button" class="remove-outcome" aria-label="Remove outcome">×</button>`;
+  row.querySelector('.remove-outcome').addEventListener('click', () => { if ($$('.devig-outcome-row').length > 2) row.remove(); });
+  $('#devigOutcomes').appendChild(row);
+}
+
+$('#devigForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const bankroll = Number($('#devigBankroll').value);
+  const outcomes = $$('.devig-outcome-row').map(row => ({
+    name: row.querySelector('.devig-name').value.trim(),
+    offered: Number(row.querySelector('.devig-offered').value),
+    sharp: Number(row.querySelector('.devig-sharp').value)
+  }));
+  const { impliedTotal, results } = proportionalDevig(outcomes, bankroll);
+  $('#marketHold').textContent = `${((impliedTotal - 1) * 100).toFixed(2)}%`;
+  $('#probabilityTotal').textContent = `${(results.reduce((sum, item) => sum + item.fairProbability, 0) * 100).toFixed(2)}%`;
+  const positiveCount = results.filter(item => item.expectedEdge > 0).length;
+  $('#positiveEdges').textContent = `${positiveCount} / ${results.length}`;
+  $('#devigResults').innerHTML = results.map(item => {
+    const hasEdge = item.expectedEdge > 0;
+    return `<article class="devig-result ${hasEdge ? '' : 'no-edge'}"><div class="devig-result-head"><h3>${escapeHtml(item.name)}</h3><span class="edge-label ${hasEdge ? 'positive' : 'negative'}">${hasEdge ? '+' : ''}${(item.expectedEdge * 100).toFixed(2)}% EV</span></div><div class="devig-result-grid"><div><span>FAIR PROBABILITY</span><strong>${(item.fairProbability * 100).toFixed(2)}%</strong></div><div><span>OFFERED IMPLIED</span><strong>${(item.offeredImplied * 100).toFixed(2)}%</strong></div><div><span>PROB. EDGE</span><strong class="${item.probabilityEdge > 0 ? 'positive' : 'negative'}">${item.probabilityEdge >= 0 ? '+' : ''}${(item.probabilityEdge * 100).toFixed(2)}%</strong></div></div><div class="recommended-stake"><span>Quarter Kelly · ${(item.quarterKelly * 100).toFixed(2)}% bankroll</span><strong>${money(item.stake)}</strong></div></article>`;
+  }).join('');
+  $('#devigSummary').classList.remove('hidden');
+  $('#devigSummary').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 
 $('#kellyForm').addEventListener('submit', event => {
   event.preventDefault();
@@ -225,11 +226,13 @@ $('#betSearch').addEventListener('input', renderBetsTable);
 $('#betFilters').addEventListener('click', event => { if (!event.target.dataset.filter) return; activeFilter=event.target.dataset.filter; $$('#betFilters button').forEach(b=>b.classList.toggle('active',b===event.target)); renderBetsTable(); });
 $('#resultPicker').addEventListener('click', event => { if (!event.target.dataset.outcome) return; setOutcome($('#betOutcome').value === event.target.dataset.outcome ? 'pending' : event.target.dataset.outcome); });
 $('#addOutcome').addEventListener('click', () => addOutcome());
+$('#addDevigOutcome').addEventListener('click', () => addDevigOutcome());
 window.addEventListener('hashchange', route);
 window.addEventListener('resize', () => { if (!$('#dashboardPage').classList.contains('hidden')) renderChart(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
 
 $('#todayLabel').textContent = new Date().toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
 addOutcome('Side A', '', ''); addOutcome('Side B', '', '');
+addDevigOutcome('Side A', '', ''); addDevigOutcome('Side B', '', '');
 route();
 loadBets().catch(error => { renderAll(); showToast(`Database unavailable: ${error.message}`); });

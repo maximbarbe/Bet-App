@@ -1,38 +1,10 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
+const { createBet, deleteBet, getBet, listBets, updateBet } = require('./database');
 
 const PORT = Number(process.env.PORT) || 4173;
-const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, 'data');
-fs.mkdirSync(DATA_DIR, { recursive: true });
-
-const db = new DatabaseSync(path.join(DATA_DIR, 'edge.db'));
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  CREATE TABLE IF NOT EXISTS bets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL,
-    sport TEXT NOT NULL,
-    team_a TEXT NOT NULL,
-    team_b TEXT NOT NULL,
-    selection TEXT NOT NULL,
-    line TEXT NOT NULL,
-    odds REAL NOT NULL CHECK (odds >= 1),
-    stake REAL NOT NULL CHECK (stake > 0),
-    outcome TEXT NOT NULL DEFAULT 'pending' CHECK (outcome IN ('pending','win','loss','push','half-win','half-loss')),
-    profit REAL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-
-const selectAll = db.prepare(`SELECT id, date, sport, team_a AS teamA, team_b AS teamB, selection, line, odds, stake, outcome, profit, created_at AS createdAt, updated_at AS updatedAt FROM bets ORDER BY datetime(date) DESC, id DESC`);
-const selectOne = db.prepare(`SELECT id, date, sport, team_a AS teamA, team_b AS teamB, selection, line, odds, stake, outcome, profit, created_at AS createdAt, updated_at AS updatedAt FROM bets WHERE id = ?`);
-const insertBet = db.prepare(`INSERT INTO bets (date, sport, team_a, team_b, selection, line, odds, stake, outcome, profit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-const updateBet = db.prepare(`UPDATE bets SET date=?, sport=?, team_a=?, team_b=?, selection=?, line=?, odds=?, stake=?, outcome=?, profit=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`);
-const deleteBet = db.prepare('DELETE FROM bets WHERE id = ?');
+const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -48,6 +20,7 @@ function readJson(req) {
   });
 }
 
+// Validate at the API boundary and calculate profit on the server.
 function validate(input) {
   const allowed = ['pending','win','loss','push','half-win','half-loss'];
   const required = ['date','sport','teamA','teamB','selection','line'];
@@ -66,24 +39,22 @@ async function handleApi(req, res, pathname) {
   if (!match) return false;
   const id = match[1] ? Number(match[1]) : null;
   try {
-    if (req.method === 'GET' && !id) return json(res, 200, selectAll.all());
+    if (req.method === 'GET' && !id) return json(res, 200, listBets());
     if (req.method === 'GET' && id) {
-      const bet = selectOne.get(id);
+      const bet = getBet(id);
       return json(res, bet ? 200 : 404, bet || { error: 'Bet not found' });
     }
     if (req.method === 'POST' && !id) {
       const b = validate(await readJson(req));
-      const result = insertBet.run(b.date, b.sport.trim(), b.teamA.trim(), b.teamB.trim(), b.selection.trim(), b.line.trim(), Number(b.odds), Number(b.stake), b.outcome, b.profit);
-      return json(res, 201, selectOne.get(Number(result.lastInsertRowid)));
+      return json(res, 201, createBet(b));
     }
     if (req.method === 'PUT' && id) {
       const b = validate(await readJson(req));
-      const result = updateBet.run(b.date, b.sport.trim(), b.teamA.trim(), b.teamB.trim(), b.selection.trim(), b.line.trim(), Number(b.odds), Number(b.stake), b.outcome, b.profit, id);
-      return json(res, result.changes ? 200 : 404, result.changes ? selectOne.get(id) : { error: 'Bet not found' });
+      const updated = updateBet(id, b);
+      return json(res, updated ? 200 : 404, updated || { error: 'Bet not found' });
     }
     if (req.method === 'DELETE' && id) {
-      const result = deleteBet.run(id);
-      return result.changes ? json(res, 204, null) : json(res, 404, { error: 'Bet not found' });
+      return deleteBet(id) ? json(res, 204, null) : json(res, 404, { error: 'Bet not found' });
     }
     return json(res, 405, { error: 'Method not allowed' });
   } catch (error) { return json(res, 400, { error: error.message }); }
@@ -97,9 +68,10 @@ const server = http.createServer(async (req, res) => {
     if (!handled && !res.headersSent) json(res, 404, { error: 'API route not found' });
     return;
   }
+  // Serve frontend files only from public/ to keep backend files private.
   const requested = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
-  const file = path.resolve(ROOT, requested);
-  if (!file.startsWith(ROOT + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+  const file = path.resolve(PUBLIC_DIR, requested);
+  if (!file.startsWith(PUBLIC_DIR + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
     res.writeHead(404); return res.end('Not found');
   }
   res.writeHead(200, { 'Content-Type': mime[path.extname(file)] || 'application/octet-stream' });

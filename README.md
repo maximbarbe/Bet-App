@@ -15,3 +15,18 @@ Bet data is stored in `data/edge.db`. The database persists across browser and c
 ## Deploy
 
 The app includes a Node API and requires a host with persistent disk storage. It can be deployed to a Node host; for a multi-user version, the same API can later move to hosted PostgreSQL with authentication.
+
+## Project structure
+
+```text
+public/              Browser application
+  css/styles.css     Visual design and responsive layout
+  js/app.js          Page rendering and interactions
+  js/api.js          Database API client
+  js/calculations.js Settlement, devig, and staking math
+  js/utils.js        Formatting and DOM helpers
+src/
+  server.js          HTTP API and static file server
+  database.js        SQLite schema and queries
+data/edge.db         Local database (created at runtime)
+```
