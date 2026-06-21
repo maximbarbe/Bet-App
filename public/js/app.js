@@ -1,6 +1,6 @@
 import { betsApi as api } from './api.js';
 import { calculateProfit, proportionalDevig, resultOf } from './calculations.js';
-import { $, $$, escapeHtml, formatDate, money, signedMoney } from './utils.js';
+import { $, $$, escapeHtml, formatDate, formatDateTime, money, signedMoney } from './utils.js';
 
 const STORAGE_KEY = 'edge-bets-v1';
 let bets = [];
@@ -25,6 +25,7 @@ async function loadBets() {
 function renderAll() {
   renderStats();
   renderChart();
+  renderPerformanceHistory();
   renderRecent();
   renderBetsTable();
 }
@@ -49,12 +50,36 @@ function renderStats() {
   $('#record').textContent = `${counts.win}–${counts.loss}–${counts.push}`;
 }
 
-function renderChart() {
-  const settled = bets.filter(b => resultOf(b) !== 'pending').sort((a, b) => new Date(a.date) - new Date(b.date));
-  const svg = $('#profitChart');
-  $('#chartEmpty').classList.toggle('hidden', settled.length > 0);
+function settledBetsInStartOrder() {
+  return bets
+    .filter(bet => resultOf(bet) !== 'pending')
+    .sort((left, right) => new Date(left.date) - new Date(right.date));
+}
+
+function resultTone(result) {
+  if (result.includes('win')) return 'win';
+  if (result.includes('loss')) return 'loss';
+  return 'push';
+}
+
+function resultColorClass(result) {
+  if (result === 'half-win') return 'half-positive';
+  if (result === 'half-loss') return 'half-negative';
+  if (result === 'win') return 'positive';
+  if (result === 'loss') return 'negative';
+  return 'neutral';
+}
+
+function renderProfitChart(svgSelector, emptySelector) {
+  const settled = settledBetsInStartOrder();
+  const svg = $(svgSelector);
+  const emptyState = $(emptySelector);
+  if (!svg || !emptyState) return;
+
+  emptyState.classList.toggle('hidden', settled.length > 0);
   svg.classList.toggle('hidden', settled.length === 0);
   if (!settled.length) return;
+
   const width = 800, height = 270, pad = { t: 20, r: 20, b: 30, l: 55 };
   let running = 0;
   const data = [{ label: 'Start', value: 0 }, ...settled.map(b => ({ label: formatDate(b.date, true), value: running += Number(b.profit) }))];
@@ -67,13 +92,31 @@ function renderChart() {
   const grids = gridValues.map(v => `<line class="chart-grid" x1="${pad.l}" x2="${width-pad.r}" y1="${y(v)}" y2="${y(v)}"/><text class="chart-label" x="0" y="${y(v)+3}">${escapeHtml(signedMoney(v))}</text>`).join('');
   const labels = data.map((d,i) => (i === 0 || i === data.length-1 || (data.length > 5 && i === Math.floor(data.length/2))) ? `<text class="chart-label" text-anchor="middle" x="${x(i)}" y="${height-5}">${escapeHtml(d.label)}</text>` : '').join('');
   const zero = min < 0 && max > 0 ? `<line class="chart-zero" x1="${pad.l}" x2="${width-pad.r}" y1="${y(0)}" y2="${y(0)}"/>` : '';
+  const gradientId = `${svg.id}Gradient`;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.innerHTML = `<defs><linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f36a" stop-opacity=".22"/><stop offset="1" stop-color="#c8f36a" stop-opacity="0"/></linearGradient></defs>${grids}${zero}<polygon class="chart-area" points="${points} ${x(data.length-1)},${height-pad.b} ${x(0)},${height-pad.b}"/><polyline class="chart-line" points="${points}"/>${labels}`;
+  svg.innerHTML = `<defs><linearGradient id="${gradientId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8f36a" stop-opacity=".22"/><stop offset="1" stop-color="#c8f36a" stop-opacity="0"/></linearGradient></defs>${grids}${zero}<polygon class="chart-area" style="fill:url(#${gradientId})" points="${points} ${x(data.length-1)},${height-pad.b} ${x(0)},${height-pad.b}"/><polyline class="chart-line" points="${points}"/>${labels}`;
+}
+
+function renderChart() {
+  renderProfitChart('#profitChart', '#chartEmpty');
+  renderProfitChart('#performanceChart', '#performanceChartEmpty');
+}
+
+function renderPerformanceHistory() {
+  const settled = settledBetsInStartOrder();
+  $('#completedBetCount').textContent = `${settled.length} BET${settled.length === 1 ? '' : 'S'}`;
+  $('#completedHistoryEmpty').classList.toggle('hidden', settled.length > 0);
+  $('#completedBetHistory').classList.toggle('hidden', settled.length === 0);
+  $('#completedBetHistory').innerHTML = settled.map((bet, index) => {
+    const result = resultOf(bet);
+    const tone = resultTone(result);
+    return `<article class="completed-bet-card ${tone} ${result}" data-edit="${bet.id}"><div class="history-sequence">${String(index + 1).padStart(2, '0')}</div><div class="history-match"><span>${escapeHtml(bet.sport)}</span><h3>${escapeHtml(bet.teamA)} <small>vs</small> ${escapeHtml(bet.teamB)}</h3><p>${formatDateTime(bet.date)}</p></div><div class="history-selection"><span>BET</span><strong>${escapeHtml(bet.selection)}</strong><p>${escapeHtml(bet.line)} · ${Number(bet.odds).toFixed(3)}</p></div><div class="history-stake"><span>STAKE</span><strong>${money(bet.stake)}</strong></div><div class="history-result"><span class="status ${result}">${result.replace('-', ' ')}</span><strong>${signedMoney(Number(bet.profit))}</strong></div></article>`;
+  }).join('');
 }
 
 function betRow(bet) {
   const result = resultOf(bet);
-  const tone = result.includes('win') ? 'positive' : result.includes('loss') ? 'negative' : 'neutral';
+  const tone = resultColorClass(result);
   return `<tr><td class="matchup"><strong>${escapeHtml(bet.teamA)} <span>vs</span> ${escapeHtml(bet.teamB)}</strong><span>${escapeHtml(bet.sport)}</span></td><td>${formatDate(bet.date)}</td><td><strong>${escapeHtml(bet.selection)}</strong><br><span class="neutral">${escapeHtml(bet.line)}</span></td><td>${Number(bet.odds).toFixed(3)}</td><td>${money(bet.stake)}</td><td><span class="status ${result}">${result.replace('-', ' ')}</span></td><td class="${tone}">${result === 'pending' ? '—' : signedMoney(Number(bet.profit))}</td><td><button class="edit-button" data-edit="${bet.id}">Edit</button></td></tr>`;
 }
 
@@ -95,7 +138,7 @@ function renderRecent() {
   $('#recentBets').innerHTML = recent.length ? recent.map(b => {
     const result = resultOf(b);
     const initial = b.sport.trim().charAt(0).toUpperCase();
-    const tone = result.includes('win') ? 'positive' : result.includes('loss') ? 'negative' : 'neutral';
+    const tone = resultColorClass(result);
     return `<div class="recent-item" data-edit="${b.id}"><div class="sport-badge">${escapeHtml(initial)}</div><div><h3>${escapeHtml(b.teamA)} vs ${escapeHtml(b.teamB)}</h3><p>${formatDate(b.date, true)} · ${escapeHtml(b.selection)} · ${escapeHtml(b.line)}</p></div><span class="recent-profit ${tone}">${result === 'pending' ? 'PENDING' : signedMoney(Number(b.profit))}</span></div>`;
   }).join('') : '<div class="empty-mini">Your latest bets will appear here.</div>';
 }
@@ -156,12 +199,12 @@ $('#deleteBet').addEventListener('click', async () => {
 });
 
 function route() {
-  const name = ['dashboard','bets','kelly','devig'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
+  const name = ['dashboard','performance','bets','kelly','devig'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
   $$('.page').forEach(p => p.classList.add('hidden'));
   $(`#${name}Page`).classList.remove('hidden');
   $$('.nav a').forEach(a => a.classList.toggle('active', a.dataset.route === name));
   $('.sidebar').classList.remove('open');
-  if (name === 'dashboard') setTimeout(renderChart, 0);
+  if (name === 'dashboard' || name === 'performance') setTimeout(renderChart, 0);
 }
 
 function addOutcome(name='', odds='', probability='') {
@@ -228,7 +271,10 @@ $('#resultPicker').addEventListener('click', event => { if (!event.target.datase
 $('#addOutcome').addEventListener('click', () => addOutcome());
 $('#addDevigOutcome').addEventListener('click', () => addDevigOutcome());
 window.addEventListener('hashchange', route);
-window.addEventListener('resize', () => { if (!$('#dashboardPage').classList.contains('hidden')) renderChart(); });
+window.addEventListener('resize', () => {
+  const chartPageVisible = !$('#dashboardPage').classList.contains('hidden') || !$('#performancePage').classList.contains('hidden');
+  if (chartPageVisible) renderChart();
+});
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
 
 $('#todayLabel').textContent = new Date().toLocaleDateString('en-CA', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();

@@ -18,6 +18,7 @@
         </a>
         <nav class="nav" aria-label="Main navigation">
           <a href="#dashboard" data-route="dashboard"><span class="nav-icon">⌂</span>Overview</a>
+          <a href="#performance" data-route="performance"><span class="nav-icon">⌁</span>Performance</a>
           <a href="#bets" data-route="bets"><span class="nav-icon">↗</span>My bets</a>
           <a href="#kelly" data-route="kelly"><span class="nav-icon">¼</span>Quarter Kelly</a>
           <a href="#devig" data-route="devig"><span class="nav-icon">◎</span>Devig & Stake</a>
@@ -58,6 +59,24 @@
               <div id="recentBets" class="recent-list"></div>
             </article>
           </div>
+        </section>
+
+        <section class="page hidden" id="performancePage">
+          <div class="section-heading performance-heading">
+            <div><p class="eyebrow">PERFORMANCE HISTORY</p><h1>Every result,<br><em>in sequence.</em></h1></div>
+            <p>Review your cumulative profit and every completed match in chronological start-time order.</p>
+          </div>
+
+          <article class="panel chart-panel performance-chart-panel">
+            <div class="panel-heading"><div><p class="eyebrow">PROFIT TREND</p><h2>Cumulative performance</h2></div><span class="period-chip">ALL TIME</span></div>
+            <div class="chart-wrap performance-chart-wrap"><svg id="performanceChart" role="img" aria-label="Full cumulative profit chart"></svg><div class="chart-empty" id="performanceChartEmpty">Settle your first bet to see the curve.</div></div>
+          </article>
+
+          <section class="performance-history" aria-labelledby="completedHistoryTitle">
+            <div class="history-heading"><div><p class="eyebrow">COMPLETED MATCHES</p><h2 id="completedHistoryTitle">Result history</h2></div><span id="completedBetCount">0 BETS</span></div>
+            <div id="completedBetHistory" class="completed-bet-history"></div>
+            <div class="empty-state hidden" id="completedHistoryEmpty"><div>✓</div><h3>No completed bets yet</h3><p>Settled bets will appear here in match start order.</p></div>
+          </section>
         </section>
 
         <section class="page hidden" id="betsPage">

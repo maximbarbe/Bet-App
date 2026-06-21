@@ -18,6 +18,16 @@ export function formatDate(value, short = false) {
   return date.toLocaleDateString('en-CA', options);
 }
 
+export function formatDateTime(value) {
+  return new Date(value).toLocaleString('en-CA', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
 // Escape user-entered text before placing it inside generated HTML.
 export function escapeHtml(value = '') {
   return String(value).replace(/[&<>'"]/g, character => ({
