@@ -107,8 +107,17 @@ function renderProfitChart(svgSelector, emptySelector) {
   const width = 800, height = 270, pad = { t: 20, r: 20, b: 30, l: 55 };
   let running = 0;
   const data = [{ label: 'Start', value: 0 }, ...settled.map(b => ({ label: formatDate(b.date, true), value: running += Number(b.profit) }))];
-  const min = Math.min(0, ...data.map(d => d.value)), max = Math.max(0, ...data.map(d => d.value));
-  const range = max - min || 1;
+  let min = Math.min(0, ...data.map(d => d.value));
+  let max = Math.max(0, ...data.map(d => d.value));
+
+  // A flat chart needs a real vertical range or midpoint ticks render outside the SVG.
+  if (max === min) {
+    const padding = Math.max(Math.abs(max) * 0.1, 1);
+    min -= padding;
+    max += padding;
+  }
+
+  const range = max - min;
   const x = i => pad.l + (i / Math.max(data.length - 1, 1)) * (width - pad.l - pad.r);
   const y = v => pad.t + ((max - v) / range) * (height - pad.t - pad.b);
   const points = data.map((d, i) => `${x(i)},${y(d.value)}`).join(' ');
