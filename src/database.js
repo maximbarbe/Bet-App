@@ -2,10 +2,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 
-const dataDirectory = path.resolve(__dirname, '..', 'data');
-fs.mkdirSync(dataDirectory, { recursive: true });
+const defaultDatabasePath = path.resolve(__dirname, '..', 'data', 'edge.db');
+const databasePath = process.env.DATABASE_PATH || defaultDatabasePath;
+fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 
-const db = new DatabaseSync(path.join(dataDirectory, 'edge.db'));
+// Tests use DATABASE_PATH so they never touch a developer's real ledger.
+const db = new DatabaseSync(databasePath);
 
 // WAL mode keeps reads responsive while a bet is being written.
 db.exec(`

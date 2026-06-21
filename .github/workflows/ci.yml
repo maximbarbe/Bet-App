@@ -1,0 +1,45 @@
+name: Continuous Integration
+
+# Validate every branch update and every pull request before changes are merged.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The workflow only needs permission to read the repository contents.
+permissions:
+  contents: read
+
+# Cancel an older run when a newer commit arrives on the same branch or PR.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Syntax and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # Download the commit being tested into the GitHub-hosted runner.
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Node 24 includes the SQLite API used by the application.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Parse every JavaScript file without executing application code.
+      - name: Check JavaScript syntax
+        run: npm run check
+
+      # Catch trailing whitespace and malformed conflict-style patches.
+      - name: Check repository whitespace
+        run: git diff --check
+
+      # Start an isolated server and test HTTP, SQLite, CRUD, and settlement math.
+      - name: Run integration tests
+        run: npm test
