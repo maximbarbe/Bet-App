@@ -7,6 +7,7 @@ A dark, local-first bet tracking web app backed by SQLite. Track wagers, settle 
 Start the Node server, then open `http://127.0.0.1:4173`:
 
 ```powershell
+npm.cmd install
 npm.cmd start
 ```
 
@@ -45,7 +46,7 @@ public/              Browser application
   js/calculations.js Settlement, devig, and staking math
   js/utils.js        Formatting and DOM helpers
 src/
-  server.js          HTTP API and static file server
+  server.js          Express API and static file server
   database.js        SQLite schema and queries
 data/edge.db         Local database (created at runtime)
 Dockerfile           Reproducible production image

@@ -10,8 +10,10 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-# The application has no production packages, so only runtime source is copied.
-COPY --chown=node:node package.json ./
+# Install production dependencies from the lockfile for reproducible builds.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 COPY --chown=node:node public ./public
 COPY --chown=node:node src ./src
 
